@@ -9,7 +9,7 @@ const path    = require('path');
 const crypto  = require('crypto');
 
 // ─── AYARLAR ────────────────────────────────────────────────
-const PORT       = 3000;
+const PORT       = process.env.PORT || 3000;
 const DB_FILE    = path.join(__dirname, 'db.json');
 const JWT_SECRET = 'tens1os_super_secret_2025'; // istersen değiştir
 
