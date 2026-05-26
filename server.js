@@ -317,6 +317,105 @@ const server = http.createServer(async (req, res) => {
 
   // GET /api/members — avatar dahil
 
+  // ── ETKİNLİKLER ──────────────────────────────────────────────
+
+  if (url === '/api/events' && method === 'GET') {
+    const db = loadDB();
+    const events = (db.events || []).map(e => {
+      const u = db.users.find(u => u.id === e.userId);
+      return { Id: e.id, Title: e.title, Description: e.description, Date: e.date, Type: e.type, Username: u?.username||'?', CreatedAt: e.createdAt };
+    });
+    json(res, 200, events.reverse());
+    return;
+  }
+
+  if (url === '/api/events' && method === 'POST') {
+    const me = authMiddleware(req);
+    if (!me || (me.role !== 'master' && me.role !== 'admin')) { err(res, 403, 'Yetki yok'); return; }
+    const { title, description, date, type } = await getBody(req);
+    if (!title) { err(res, 400, 'Başlık gerekli'); return; }
+    const db = loadDB();
+    if (!db.events) db.events = [];
+    db.events.push({ id: db.nextId++, userId: me.id, title, description: description||'', date: date||null, type: type||'announcement', createdAt: new Date().toISOString() });
+    saveDB(db);
+    json(res, 201, { message: 'Etkinlik eklendi' });
+    return;
+  }
+
+  const evtDelMatch = url.match(/^\/api\/events\/(\d+)$/);
+  if (evtDelMatch && method === 'DELETE') {
+    const me = authMiddleware(req);
+    if (!me || (me.role !== 'master' && me.role !== 'admin')) { err(res, 403, 'Yetki yok'); return; }
+    const db  = loadDB();
+    const idx = (db.events||[]).findIndex(e => e.id === parseInt(evtDelMatch[1]));
+    if (idx === -1) { err(res, 404, 'Etkinlik bulunamadı'); return; }
+    db.events.splice(idx, 1);
+    saveDB(db);
+    json(res, 200, { message: 'Etkinlik silindi' });
+    return;
+  }
+
+  // ── DM ───────────────────────────────────────────────────────
+
+  if (url === '/api/dm/conversations' && method === 'GET') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    markOnline(me.id);
+    const db = loadDB();
+    const dms = db.dms || [];
+    const convMap = new Map();
+    dms.forEach(m => {
+      const other = m.senderId === me.id ? m.receiverId : (m.receiverId === me.id ? m.senderId : null);
+      if (!other) return;
+      if (!convMap.has(other) || new Date(m.createdAt) > new Date(convMap.get(other).createdAt)) convMap.set(other, m);
+    });
+    const convs = [];
+    convMap.forEach((lastMsg, otherId) => {
+      const u = db.users.find(u => u.id === otherId);
+      const unread = dms.filter(m => m.senderId === otherId && m.receiverId === me.id && !m.read).length;
+      convs.push({ UserId: otherId, Username: u?.username||'?', LastMessage: lastMsg.content, CreatedAt: lastMsg.createdAt, Unread: unread });
+    });
+    convs.sort((a,b) => new Date(b.CreatedAt) - new Date(a.CreatedAt));
+    json(res, 200, convs);
+    return;
+  }
+
+  const dmMatch = url.match(/^\/api\/dm\/(\d+)$/);
+  if (dmMatch && method === 'GET') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    markOnline(me.id);
+    const otherId = parseInt(dmMatch[1]);
+    const db = loadDB();
+    const msgs = (db.dms || []).filter(m => (m.senderId === me.id && m.receiverId === otherId) || (m.senderId === otherId && m.receiverId === me.id));
+    msgs.forEach(m => { if (m.receiverId === me.id) m.read = true; });
+    saveDB(db);
+    const other = db.users.find(u => u.id === otherId);
+    const meUser = db.users.find(u => u.id === me.id);
+    json(res, 200, msgs.map(m => ({
+      Id: m.id, Content: m.content, SenderId: m.senderId, ReceiverId: m.receiverId,
+      SenderUsername: m.senderId === me.id ? meUser?.username : other?.username,
+      ReceiverUsername: m.receiverId === me.id ? meUser?.username : other?.username,
+      CreatedAt: m.createdAt
+    })));
+    return;
+  }
+
+  if (dmMatch && method === 'POST') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const receiverId = parseInt(dmMatch[1]);
+    const { content } = await getBody(req);
+    if (!content || !content.trim()) { err(res, 400, 'Mesaj boş olamaz'); return; }
+    const db = loadDB();
+    if (!db.dms) db.dms = [];
+    db.dms.push({ id: db.nextId++, senderId: me.id, receiverId, content: content.trim(), read: false, createdAt: new Date().toISOString() });
+    if (db.dms.length > 10000) db.dms = db.dms.slice(-10000);
+    saveDB(db);
+    json(res, 201, { message: 'Gönderildi' });
+    return;
+  }
+
   if (url === '/api/admin/stats' && method === 'GET') {
     const me = authMiddleware(req);
     if (!me || (me.role !== 'master' && me.role !== 'admin')) { err(res, 403, 'Yetki yok'); return; }
