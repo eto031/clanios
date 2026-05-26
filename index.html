@@ -629,6 +629,20 @@ async function uploadAvatar(input) {
 }
 
 // ─── GALERİ ──────────────────────────────────────────────────────
+function openLightbox(src) {
+  let lb = document.getElementById('lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = 'lightbox';
+    lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn 0.2s';
+    lb.onclick = () => lb.remove();
+    document.body.appendChild(lb);
+  }
+  lb.innerHTML = `<img src="${src}" style="max-width:90vw;max-height:90vh;object-fit:contain;border-radius:4px;box-shadow:0 0 60px rgba(0,200,255,0.2)">
+    <div style="position:absolute;top:20px;right:24px;color:white;font-size:2rem;cursor:pointer;opacity:0.7">✕</div>`;
+  lb.style.display = 'flex';
+}
+
 async function loadGallery() {
   const grid = document.getElementById('galleryGrid');
   grid.innerHTML = '<div class="empty-state"><div class="loader"></div></div>';
@@ -636,15 +650,16 @@ async function loadGallery() {
     const photos = await apiFetch('/api/gallery');
     if (!photos.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Henüz fotoğraf yok. İlk fotoğrafı sen ekle!</div>'; return; }
     grid.innerHTML = photos.map(p => `
-      <div style="position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--glass-border);background:var(--dark2)">
-        <img src="${p.Data}" style="width:100%;height:200px;object-fit:cover;display:block">
+      <div style="position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--glass-border);background:var(--dark2);transition:transform 0.2s;cursor:pointer" 
+           onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
+        <img src="${p.Data}" style="width:100%;aspect-ratio:4/3;object-fit:contain;display:block;background:var(--dark3)" onclick="openLightbox('${p.Data}')">
         <div style="padding:0.75rem;display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:0.85rem;color:var(--primary)">${esc(p.Username)}</div>
             <div style="font-size:0.75rem;color:var(--text-muted)">${fmtTime(p.CreatedAt)}</div>
           </div>
           ${(currentUser && (currentUser.id === p.UserId || currentUser.role === 'master' || currentUser.role === 'admin'))
-            ? `<button class="btn btn-danger btn-sm" onclick="deleteGalleryPhoto(${p.Id})">Sil</button>` : ''}
+            ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteGalleryPhoto(${p.Id})">Sil</button>` : ''}
         </div>
       </div>
     `).join('');
