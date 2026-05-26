@@ -168,12 +168,103 @@ select.inp-dark{cursor:pointer;}
 .empty-state{text-align:center;color:var(--text-muted);padding:3rem;grid-column:1/-1;}
 
 @media(max-width:768px){
-  .chat-layout{grid-template-columns:1fr;}
-  .chat-sidebar{display:none;}
-  .admin-grid{grid-template-columns:1fr;}
-  .hero-stats{gap:1.5rem;}
-  .members-grid{grid-template-columns:repeat(2,1fr);}
+  #hamburger{display:block !important;}
+  .nav-links.mobile-open{
+    display:flex !important;
+    flex-direction:column;
+    position:fixed;
+    top:56px;left:0;right:0;
+    background:var(--dark2);
+    border-bottom:1px solid var(--glass-border);
+    padding:1rem;
+    gap:0;
+    z-index:999;
+  }
+  .nav-links.mobile-open li a{
+    display:block;
+    padding:0.85rem 1rem;
+    border-bottom:1px solid var(--glass-border);
+    font-size:0.9rem;
+  }
+  .nav-actions{display:none;}
+  .nav-links.mobile-open + .nav-actions-mobile{display:flex !important;}
+}
+  nav{padding:0 1rem;height:56px;}
+  .nav-logo span{font-size:1rem;}
   .nav-links{display:none;}
+  .nav-actions{gap:4px;}
+  .nav-actions .btn{font-size:0.7rem;padding:6px 10px;}
+
+  /* HERO */
+  .hero{padding:3rem 1rem 2rem;}
+  .hero-title{font-size:clamp(2.5rem,15vw,4rem) !important;letter-spacing:2px !important;}
+  .hero-subtitle{font-size:0.75rem;letter-spacing:3px;}
+  .hero-desc{font-size:0.9rem;padding:0 0.5rem;}
+  .hero-stats{gap:1rem;flex-wrap:wrap;justify-content:center;}
+  .hero-stat{min-width:80px;}
+  .hero-actions{flex-direction:column;align-items:center;gap:0.75rem;}
+  .hero-actions .btn{width:100%;max-width:300px;justify-content:center;}
+
+  /* SECTION */
+  .section{padding:2rem 1rem;}
+  .section-title{font-size:1.5rem;}
+
+  /* MEMBERS */
+  .members-grid{grid-template-columns:repeat(2,1fr);gap:0.75rem;}
+  .member-card{padding:1.25rem 0.75rem;}
+  .member-avatar{width:60px;height:60px;font-size:1.2rem;}
+  .member-name{font-size:0.9rem;}
+
+  /* CHAT */
+  .chat-layout{grid-template-columns:1fr;padding:0.5rem;height:calc(100vh - 56px);}
+  .chat-sidebar{display:none;}
+  .chat-header{padding:0.75rem 1rem;}
+  .chat-messages{padding:0.75rem 1rem;}
+  .chat-input-area{padding:0.75rem 1rem;gap:6px;}
+  .chat-input{font-size:0.9rem;padding:10px 12px;}
+
+  /* DM */
+  #dmLayout{grid-template-columns:1fr !important;grid-template-rows:auto 1fr;}
+  #dmLayout > div:first-child{max-height:200px;}
+
+  /* ADMIN */
+  .admin-layout{padding:1rem;}
+  .admin-stat-grid{grid-template-columns:repeat(3,1fr);gap:0.5rem;}
+  .admin-stat-num{font-size:1.3rem;}
+  .admin-grid{grid-template-columns:1fr;}
+
+  /* AUTH */
+  .auth-container{margin:2rem auto;padding:0 1rem;}
+  .auth-box{padding:1.5rem 1.25rem;}
+
+  /* JOIN */
+  .join-box{padding:2rem 1.25rem;clip-path:none;border-radius:4px;}
+
+  /* GALLERY */
+  #galleryGrid{grid-template-columns:repeat(2,1fr) !important;gap:0.5rem !important;}
+
+  /* EVENTS */
+  .section .glass-card{padding:1rem !important;}
+
+  /* SETTINGS */
+  .glass-card{padding:1.25rem !important;}
+
+  /* FLASH */
+  .flash{right:10px;left:10px;max-width:none;}
+
+  /* GENERAL */
+  .btn{font-size:0.8rem;}
+  .btn-sm{font-size:0.72rem;padding:6px 10px;}
+}
+
+@media(max-width:420px){
+  .members-grid{grid-template-columns:1fr 1fr;}
+  .member-card{padding:1rem 0.5rem;}
+  #galleryGrid{grid-template-columns:1fr !important;}
+  .hero-title{font-size:clamp(2rem,18vw,3rem) !important;}
+  .admin-stat-grid{grid-template-columns:1fr 1fr 1fr;}
+  .admin-stat-num{font-size:1.1rem;}
+  .admin-stat-label{font-size:0.6rem;letter-spacing:1px;}
 }
 </style>
 </head>
@@ -185,7 +276,8 @@ select.inp-dark{cursor:pointer;}
     <img src="logo.png" alt="Tens1os" onerror="this.style.display='none'">
     <span>CLANİOS</span>
   </div>
-  <ul class="nav-links">
+  <button id="hamburger" onclick="toggleMobileMenu()" style="display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer;padding:8px;margin-left:auto">☰</button>
+  <ul class="nav-links" id="navLinks">
     <li><a onclick="showPage('home')">Ana Sayfa</a></li>
     <li><a onclick="showPage('members')">Üyeler</a></li>
     <li><a onclick="showPage('events')">Etkinlikler</a></li>
@@ -567,6 +659,8 @@ function showPage(name) {
   if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
+  // Mobil menüyü kapat
+  document.getElementById('navLinks').classList.remove('mobile-open');
   if (name === 'home')     loadHomeStats();
   if (name === 'members')  loadMembers();
   if (name === 'chat')     initChat();
@@ -1149,6 +1243,10 @@ async function sendDM() {
   } catch(e) { flash('Gönderilemedi: ' + e.message, 'error'); }
 }
 
+
+function toggleMobileMenu() {
+  document.getElementById('navLinks').classList.toggle('mobile-open');
+}
 
 updateNav();
 loadHomeStats();
