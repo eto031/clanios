@@ -20,8 +20,6 @@ function loadDB() {
 }
 
 function saveDB(db) {
-  const dir = path.dirname(DB_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
@@ -208,6 +206,52 @@ const server = http.createServer(async (req, res) => {
     db.settings[key] = value;
     saveDB(db);
     json(res, 200, { message: 'Kaydedildi' });
+    return;
+  }
+
+  // PUT /api/profile/username
+  if (url === '/api/profile/username' && method === 'PUT') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const { username } = await getBody(req);
+    if (!username || username.trim().length < 3) { err(res, 400, 'En az 3 karakter olmalı'); return; }
+    const db = loadDB();
+    if (db.users.find(u => u.id !== me.id && u.username.toLowerCase() === username.toLowerCase())) { err(res, 409, 'Bu kullanıcı adı alınmış'); return; }
+    const user = db.users.find(u => u.id === me.id);
+    if (!user) { err(res, 404, 'Kullanıcı bulunamadı'); return; }
+    user.username = username.trim();
+    saveDB(db);
+    const newToken = makeToken({ id: user.id, username: user.username, email: user.email, role: user.role });
+    json(res, 200, { message: 'Kullanıcı adı güncellendi', token: newToken });
+    return;
+  }
+
+  // PUT /api/profile/password
+  if (url === '/api/profile/password' && method === 'PUT') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const { currentPassword, newPassword } = await getBody(req);
+    if (!currentPassword || !newPassword) { err(res, 400, 'Tüm alanları doldurun'); return; }
+    if (newPassword.length < 6) { err(res, 400, 'Şifre en az 6 karakter olmalı'); return; }
+    const db = loadDB();
+    const user = db.users.find(u => u.id === me.id);
+    if (!user) { err(res, 404, 'Kullanıcı bulunamadı'); return; }
+    if (user.password !== hashPass(currentPassword)) { err(res, 401, 'Mevcut şifre hatalı'); return; }
+    user.password = hashPass(newPassword);
+    saveDB(db);
+    json(res, 200, { message: 'Şifre güncellendi' });
+    return;
+  }
+
+  // POST /api/auth/refresh
+  if (url === '/api/auth/refresh' && method === 'POST') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const db = loadDB();
+    const user = db.users.find(u => u.id === me.id);
+    if (!user) { err(res, 404, 'Kullanıcı bulunamadı'); return; }
+    const newToken = makeToken({ id: user.id, username: user.username, email: user.email, role: user.role });
+    json(res, 200, { token: newToken });
     return;
   }
 
