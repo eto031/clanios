@@ -332,13 +332,41 @@ select.inp-dark{cursor:pointer;}
       <div class="section-label">Fotoğraflar</div>
       <h2 class="section-title">KLAN <span>GALERİSİ</span></h2>
     </div>
-    <div style="text-align:center;margin-bottom:2rem">
-      <label class="btn btn-primary" style="cursor:pointer">
-        📷 Fotoğraf Yükle
-        <input type="file" id="galleryUpload" accept="image/*" style="display:none" onchange="uploadGalleryPhoto(this)">
-      </label>
-    </div>
+    <div style="text-align:center;margin-bottom:2rem" id="galleryUploadBtn"></div>
     <div id="galleryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem;"></div>
+  </div>
+</div>
+
+<!-- AYARLAR -->
+<div class="page" id="page-settings">
+  <div class="section" style="max-width:500px;margin:0 auto">
+    <div class="section-header">
+      <div class="section-label">Profil</div>
+      <h2 class="section-title">HESAP <span>AYARLARI</span></h2>
+    </div>
+    <div class="glass-card" style="padding:2rem">
+      <h3 style="margin-bottom:1.5rem;color:var(--primary);font-size:0.85rem;letter-spacing:2px">KULLANICI ADI DEĞİŞTİR</h3>
+      <div class="form-group">
+        <label>Yeni Kullanıcı Adı</label>
+        <input class="inp-dark" type="text" id="newUsername" placeholder="Yeni kullanıcı adı">
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:2rem" onclick="changeUsername()">Kullanıcı Adını Güncelle</button>
+
+      <h3 style="margin-bottom:1.5rem;color:var(--primary);font-size:0.85rem;letter-spacing:2px">ŞİFRE DEĞİŞTİR</h3>
+      <div class="form-group">
+        <label>Mevcut Şifre</label>
+        <input class="inp-dark" type="password" id="currentPassword" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>Yeni Şifre</label>
+        <input class="inp-dark" type="password" id="newPassword" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>Yeni Şifre Tekrar</label>
+        <input class="inp-dark" type="password" id="newPassword2" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="changePassword()">Şifreyi Güncelle</button>
+    </div>
   </div>
 </div>
 
@@ -466,11 +494,12 @@ function showPage(name) {
   if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  if (name === 'home')    loadHomeStats();
-  if (name === 'members') loadMembers();
-  if (name === 'chat')    initChat();
-  if (name === 'admin')   loadAdmin();
-  if (name === 'gallery') loadGallery();
+  if (name === 'home')     loadHomeStats();
+  if (name === 'members')  loadMembers();
+  if (name === 'chat')     initChat();
+  if (name === 'admin')    loadAdmin();
+  if (name === 'gallery')  loadGallery();
+  if (name === 'settings') loadSettings();
 }
 
 function requireAuth(page) {
@@ -486,6 +515,7 @@ function updateNav() {
     el.innerHTML = `
       <span style="color:var(--text-muted);font-size:0.8rem;letter-spacing:1px;margin-right:6px">${esc(currentUser.username)}</span>
       ${isAdmin ? '<button class="btn btn-gold btn-sm" onclick="showPage(\'admin\')">Yönetim</button>' : ''}
+      <button class="btn btn-outline btn-sm" onclick="showPage('settings')">⚙️ Ayarlar</button>
       <button class="btn btn-outline btn-sm" onclick="doLogout()">Çıkış</button>
     `;
   } else {
@@ -645,10 +675,22 @@ function openLightbox(src) {
 
 async function loadGallery() {
   const grid = document.getElementById('galleryGrid');
+  const uploadBtn = document.getElementById('galleryUploadBtn');
+  
+  // Yükleme butonu sadece master/admin'e
+  if (currentUser && (currentUser.role === 'master' || currentUser.role === 'admin')) {
+    uploadBtn.innerHTML = `<label class="btn btn-primary" style="cursor:pointer">
+      📷 Fotoğraf Yükle
+      <input type="file" id="galleryUpload" accept="image/*" style="display:none" onchange="uploadGalleryPhoto(this)">
+    </label>`;
+  } else {
+    uploadBtn.innerHTML = '';
+  }
+
   grid.innerHTML = '<div class="empty-state"><div class="loader"></div></div>';
   try {
     const photos = await apiFetch('/api/gallery');
-    if (!photos.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Henüz fotoğraf yok. İlk fotoğrafı sen ekle!</div>'; return; }
+    if (!photos.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Henüz fotoğraf yok.</div>'; return; }
     grid.innerHTML = photos.map(p => `
       <div style="position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--glass-border);background:var(--dark2);transition:transform 0.2s;cursor:pointer" 
            onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
@@ -658,7 +700,7 @@ async function loadGallery() {
             <div style="font-size:0.85rem;color:var(--primary)">${esc(p.Username)}</div>
             <div style="font-size:0.75rem;color:var(--text-muted)">${fmtTime(p.CreatedAt)}</div>
           </div>
-          ${(currentUser && (currentUser.id === p.UserId || currentUser.role === 'master' || currentUser.role === 'admin'))
+          ${(currentUser && (currentUser.role === 'master' || currentUser.role === 'admin'))
             ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteGalleryPhoto(${p.Id})">Sil</button>` : ''}
         </div>
       </div>
@@ -666,6 +708,42 @@ async function loadGallery() {
   } catch (e) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">Yüklenemedi: ${e.message}</div>`;
   }
+}
+
+// ─── AYARLAR ─────────────────────────────────────────────────────
+async function changeUsername() {
+  const newName = document.getElementById('newUsername').value.trim();
+  if (!newName) { flash('Kullanıcı adı boş olamaz', 'error'); return; }
+  if (newName.length < 3) { flash('En az 3 karakter olmalı', 'error'); return; }
+  try {
+    await apiFetch('/api/profile/username', { method: 'PUT', body: JSON.stringify({ username: newName }) });
+    // Token'ı yenile
+    const data = await apiFetch('/api/auth/refresh', { method: 'POST' });
+    if (data.token) {
+      token = data.token;
+      currentUser = parseJWT(token);
+      localStorage.setItem('tens1os_token', token);
+      updateNav();
+    }
+    flash('Kullanıcı adı güncellendi ✓');
+    document.getElementById('newUsername').value = '';
+  } catch (e) { flash('Güncellenemedi: ' + e.message, 'error'); }
+}
+
+async function changePassword() {
+  const current = document.getElementById('currentPassword').value;
+  const newPass  = document.getElementById('newPassword').value;
+  const newPass2 = document.getElementById('newPassword2').value;
+  if (!current || !newPass || !newPass2) { flash('Tüm alanları doldurun', 'error'); return; }
+  if (newPass !== newPass2) { flash('Yeni şifreler eşleşmiyor', 'error'); return; }
+  if (newPass.length < 6) { flash('Şifre en az 6 karakter olmalı', 'error'); return; }
+  try {
+    await apiFetch('/api/profile/password', { method: 'PUT', body: JSON.stringify({ currentPassword: current, newPassword: newPass }) });
+    flash('Şifre güncellendi ✓');
+    document.getElementById('currentPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('newPassword2').value = '';
+  } catch (e) { flash('Güncellenemedi: ' + e.message, 'error'); }
 }
 
 async function uploadGalleryPhoto(input) {
@@ -842,7 +920,10 @@ async function saveSettings() {
   } catch (e) { flash(e.message, 'error'); }
 }
 
-// ─── CONTACT ─────────────────────────────────────────────────────
+function loadSettings() {
+  if (!currentUser) { showPage('auth'); return; }
+  document.getElementById('newUsername').value = currentUser.username || '';
+}
 function contactMaster() {
   window.open(whatsappUrl || discordUrl, '_blank');
 }
