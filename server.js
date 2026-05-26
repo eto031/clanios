@@ -138,7 +138,7 @@ const server = http.createServer(async (req, res) => {
   // GET /api/members
   if (url === '/api/members' && method === 'GET') {
     const db = loadDB();
-    const list = db.users.map(u => ({ Id: u.id, Username: u.username, Role: u.role, Kills: u.kills, IsOnline: isOnline(u.id) }));
+    const list = db.users.map(u => ({ Id: u.id, Username: u.username, Role: u.role, Kills: u.kills, IsOnline: isOnline(u.id), Avatar: u.avatar || null }));
     list.sort((a,b) => { const o=['master','admin','member']; return o.indexOf(a.Role)-o.indexOf(b.Role) || b.Kills-a.Kills; });
     json(res, 200, list);
     return;
@@ -209,7 +209,68 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/admin/stats
+  // PUT /api/profile/avatar
+  if (url === '/api/profile/avatar' && method === 'PUT') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const { avatar } = await getBody(req);
+    if (!avatar || !avatar.startsWith('data:image/')) { err(res, 400, 'Geçersiz resim'); return; }
+    if (avatar.length > 3 * 1024 * 1024) { err(res, 400, 'Resim çok büyük (max 2MB)'); return; }
+    const db = loadDB();
+    const user = db.users.find(u => u.id === me.id);
+    if (!user) { err(res, 404, 'Kullanıcı bulunamadı'); return; }
+    user.avatar = avatar;
+    saveDB(db);
+    json(res, 200, { message: 'Avatar güncellendi' });
+    return;
+  }
+
+  // GET /api/gallery
+  if (url === '/api/gallery' && method === 'GET') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const db = loadDB();
+    const photos = (db.gallery || []).map(p => {
+      const u = db.users.find(u => u.id === p.userId);
+      return { Id: p.id, Data: p.data, UserId: p.userId, Username: u?.username || '?', CreatedAt: p.createdAt };
+    });
+    json(res, 200, photos.reverse());
+    return;
+  }
+
+  // POST /api/gallery
+  if (url === '/api/gallery' && method === 'POST') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const { data } = await getBody(req);
+    if (!data || !data.startsWith('data:image/')) { err(res, 400, 'Geçersiz resim'); return; }
+    if (data.length > 7 * 1024 * 1024) { err(res, 400, 'Resim çok büyük (max 5MB)'); return; }
+    const db = loadDB();
+    if (!db.gallery) db.gallery = [];
+    db.gallery.push({ id: db.nextId++, userId: me.id, data, createdAt: new Date().toISOString() });
+    saveDB(db);
+    json(res, 201, { message: 'Fotoğraf yüklendi' });
+    return;
+  }
+
+  // DELETE /api/gallery/:id
+  const galleryDelMatch = url.match(/^\/api\/gallery\/(\d+)$/);
+  if (galleryDelMatch && method === 'DELETE') {
+    const me = authMiddleware(req);
+    if (!me) { err(res, 401, 'Giriş yapın'); return; }
+    const db  = loadDB();
+    const idx = (db.gallery || []).findIndex(p => p.id === parseInt(galleryDelMatch[1]));
+    if (idx === -1) { err(res, 404, 'Fotoğraf bulunamadı'); return; }
+    const photo = db.gallery[idx];
+    if (photo.userId !== me.id && me.role !== 'master' && me.role !== 'admin') { err(res, 403, 'Yetki yok'); return; }
+    db.gallery.splice(idx, 1);
+    saveDB(db);
+    json(res, 200, { message: 'Fotoğraf silindi' });
+    return;
+  }
+
+  // GET /api/members — avatar dahil
+
   if (url === '/api/admin/stats' && method === 'GET') {
     const me = authMiddleware(req);
     if (!me || (me.role !== 'master' && me.role !== 'admin')) { err(res, 403, 'Yetki yok'); return; }
