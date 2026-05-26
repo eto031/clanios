@@ -167,27 +167,29 @@ select.inp-dark{cursor:pointer;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .empty-state{text-align:center;color:var(--text-muted);padding:3rem;grid-column:1/-1;}
 
+/* ── HAMBURGER ── */
+#hamburger{display:none;}
 @media(max-width:768px){
   #hamburger{display:block !important;}
-  .nav-links.mobile-open{
+  #navLinks{display:none;}
+  #navLinks.mobile-open{
     display:flex !important;
     flex-direction:column;
     position:fixed;
     top:56px;left:0;right:0;
     background:var(--dark2);
     border-bottom:1px solid var(--glass-border);
-    padding:1rem;
+    padding:0.5rem 0;
     gap:0;
     z-index:999;
   }
-  .nav-links.mobile-open li a{
+  #navLinks.mobile-open li a{
     display:block;
-    padding:0.85rem 1rem;
-    border-bottom:1px solid var(--glass-border);
+    padding:0.85rem 1.5rem;
+    border-bottom:1px solid rgba(0,200,255,0.05);
     font-size:0.9rem;
   }
   .nav-actions{display:none;}
-  .nav-links.mobile-open + .nav-actions-mobile{display:flex !important;}
 }
   nav{padding:0 1rem;height:56px;}
   .nav-logo span{font-size:1rem;}
